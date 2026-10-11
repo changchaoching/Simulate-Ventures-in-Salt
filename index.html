@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ventures in Salt: Compass Minerals 經營模擬儀表板</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-blue-500/20">
+                    🧂
+                </div>
+                <div>
+                    <h1 class="text-base font-extrabold text-slate-900 leading-tight flex items-center gap-2">
+                        Ventures in Salt
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">MIT Sloan 經典個案</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Compass Minerals IPO 與大宗商品定價飛行模擬器 (John Sterman)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btnOpenSubmitModal" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-semibold rounded-lg shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 transition">
+                    <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+                    <span>登錄成績至試算表</span>
+                </button>
+                <button onclick="resetSimulation()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition">
+                    重新開局
+                </button>
+                <button onclick="exportCSV()" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition">
+                    匯出報表
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
+
+        <!-- Banner: 模擬結束通知 (動態顯示) -->
+        <div id="gameStatusBanner" class="hidden"></div>
+
+        <!-- 頂部四大 KPI 指標卡片 -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <!-- 卡片 1: 模擬年度進度 -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-1">
+                <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">當前營運期數</span>
+                <div class="text-lg font-bold text-slate-900" id="valCurrentYear">第 1 年 / 共 10 年</div>
+                <span class="text-[10px] text-blue-600 font-medium">IPO 前夕第 1 回合</span>
+            </div>
+
+            <!-- 卡片 2: 企業估值 (EV) -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-1">
+                <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">企業估值 (EV)</span>
+                <div class="text-lg font-bold text-blue-600 font-mono" id="valEnterpriseValue">$580.0M</div>
+                <span class="text-[10px] text-slate-400 font-sans">8.5x EBITDA - 淨負債</span>
+            </div>
+
+            <!-- 卡片 3: 全美排名 -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-1">
+                <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">全美鹽業排名</span>
+                <div class="text-lg font-bold text-amber-600 font-mono" id="valPlayerRank">#1</div>
+                <span class="text-[10px] text-amber-700 font-medium">四巨頭 EV 競爭看板</span>
+            </div>
+
+            <!-- 卡片 4: 流動現金 -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-1">
+                <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">流動現金 (Cash)</span>
+                <div class="text-lg font-bold text-emerald-600 font-mono" id="valCashBalance">$55.0M</div>
+                <span class="text-[10px] text-slate-400">營運資金維持正常</span>
+            </div>
+
+            <!-- 卡片 5: 歷史負債 -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-1">
+                <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">未償債務 (Debt)</span>
+                <div class="text-lg font-bold text-rose-600 font-mono" id="valDebtBalance">$420.0M</div>
+                <span class="text-[10px] text-rose-700">阿波羅管理期初負債</span>
+            </div>
+
+            <!-- 卡片 6: 冬季氣候與外生隨機震盪 -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-1">
+                <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">冬季氣候指數</span>
+                <div class="text-xs font-bold text-cyan-700 font-mono" id="valWinterSeverity">1.00x (正常平均)</div>
+                <span class="text-[10px] text-cyan-600 font-sans">影響道路除冰鹽總需求</span>
+            </div>
+        </div>
+
+        <!-- 兩欄格局：左側決策操作控制台，右側市場四巨頭狀態與戰略分析 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 左側：決策控制台 (5 Cols) -->
+            <div class="lg:col-span-5 space-y-5">
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h2 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-blue-600"></i>
+                            Compass 執行長年度策略決策
+                        </h2>
+                        <span class="text-xs text-slate-400 font-mono">CEO Michael Ducey</span>
+                    </div>
+
+                    <!-- 快速策略範本 (Presets) -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-semibold text-slate-700">經典策略範本快速套用：</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="btnPresetGoderich" class="py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-semibold rounded-lg border border-blue-200 transition">
+                                ⚓ Goderich成本領先
+                            </button>
+                            <button id="btnPresetPremium" class="py-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold rounded-lg border border-slate-200 transition">
+                                💎 高利潤品牌溢價
+                            </button>
+                            <button id="btnPresetESG" class="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold rounded-lg border border-emerald-200 transition">
+                                🌱 永續研發&鹽穴存檔
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 決策 1: 道路除冰鹽投標報價 -->
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-800">1. 道路除冰鹽投標報價 (Highway Deicing Bid)</span>
+                            <div class="flex items-center gap-1 font-mono">
+                                <span>$</span>
+                                <input type="number" id="input-priceHighway" min="15" max="60" step="0.5" value="28.0" class="w-14 px-1.5 py-0.5 text-right font-bold text-blue-600 bg-white border border-slate-300 rounded text-xs focus:outline-none">
+                                <span class="text-slate-400">/噸</span>
+                            </div>
+                        </div>
+                        <input type="range" id="slider-priceHighway" min="15" max="60" step="0.5" value="28.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-400">
+                            <span>$15 (激進割喉)</span>
+                            <span class="text-blue-600 font-semibold">歷史均價 $28.0</span>
+                            <span>$60 (高暴利定價)</span>
+                        </div>
+                    </div>
+
+                    <!-- 決策 2: 一般商業與食用鹽報價 -->
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-800">2. 一般商業與食用鹽報價 (General Trade Bid)</span>
+                            <div class="flex items-center gap-1 font-mono">
+                                <span>$</span>
+                                <input type="number" id="input-priceGeneral" min="30" max="100" step="0.5" value="55.0" class="w-14 px-1.5 py-0.5 text-right font-bold text-slate-800 bg-white border border-slate-300 rounded text-xs focus:outline-none">
+                                <span class="text-slate-400">/噸</span>
+                            </div>
+                        </div>
+                        <input type="range" id="slider-priceGeneral" min="30" max="100" step="0.5" value="55.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-400">
+                            <span>$30</span>
+                            <span class="text-slate-700 font-semibold">市場均價 $55.0 (Sifto/真空蒸發鹽)</span>
+                            <span>$100</span>
+                        </div>
+                    </div>
+
+                    <!-- 決策 3: 資本支出 Capex 與產能擴建 -->
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                            <div class="flex justify-between items-center">
+                                <span class="font-semibold text-slate-700">資本支出 (Capex)</span>
+                                <span class="font-mono font-bold text-slate-800">$<span id="labelCapex">15.0</span>M</span>
+                            </div>
+                            <input type="range" id="slider-capex" min="5" max="40" step="1" value="15.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                            <input type="hidden" id="input-capex" value="15.0">
+                            <span class="text-[10px] text-slate-400 block leading-tight">礦場開採設備與五大湖水運碼頭維護</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                            <div class="flex justify-between items-center">
+                                <span class="font-semibold text-slate-700">綠色融雪研發 (R&D)</span>
+                                <span class="font-mono font-bold text-emerald-600">$<span id="labelRnD">5.0</span>M</span>
+                            </div>
+                            <input type="range" id="slider-rnd" min="0" max="25" step="1" value="5.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                            <input type="hidden" id="input-rnd" value="5.0">
+                            <span class="text-[10px] text-slate-400 block leading-tight">低腐蝕環保添加劑，抵禦淡水鹽化法規</span>
+                        </div>
+                    </div>
+
+                    <!-- 決策 4: 地下鹽穴儲藏業務擴充 (個案創新商機) -->
+                    <div class="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-xs space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-blue-900 flex items-center gap-1">
+                                <span>🗄️</span> 地下鹽穴存檔業務投資 (Salt Caverns)
+                            </span>
+                            <span class="font-mono font-bold text-blue-700">$<span id="labelCavern">2.0</span>M</span>
+                        </div>
+                        <input type="range" id="slider-cavern" min="0" max="15" step="1" value="2.0" class="w-full h-1.5 bg-blue-200 rounded-lg appearance-none cursor-pointer">
+                        <input type="hidden" id="input-cavern" value="2.0">
+                        <span class="text-[10px] text-blue-700 block">利用採空鹽穴乾燥防潮絕緣特質，開拓機密文件儲藏與核廢料封存等高毛利租金收入。</span>
+                    </div>
+
+                    <!-- 決策預覽面板 -->
+                    <div class="p-3 rounded-xl bg-slate-100 border border-slate-200 flex justify-between items-center text-xs font-mono">
+                        <div>預估年度總營收：<strong id="previewForecastRev" class="text-blue-600">$515M</strong></div>
+                        <div>資本與研發支出：<strong id="previewForecastOutlay" class="text-slate-800">$22M</strong></div>
+                    </div>
+
+                    <!-- 下一步操作按鈕 -->
+                    <button id="btnNextYear" class="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition">
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        <span>提交本年報價，推進至第 2 年</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右側：四巨頭市場地位卡片與戰略情報 (7 Cols) -->
+            <div class="lg:col-span-7 space-y-5">
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h2 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                            <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+                            全美四大鹽業巨頭即時競爭看板 (Oligopoly Competitors)
+                        </h2>
+                        <span class="text-xs text-slate-400">依據企業估值 (Enterprise Value) 排序</span>
+                    </div>
+
+                    <!-- 四巨頭動態卡片 -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="competitorsGrid">
+                        <!-- 動態渲染卡片 -->
+                    </div>
+                </div>
+
+                <!-- 戰略背景小百科 (MIT Sloan Case 學習核心) -->
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2 text-slate-600">
+                    <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                        <i data-lucide="book-open" class="w-4 h-4 text-blue-600"></i>
+                        <span>MIT Sloan 個案戰略洞察 (Professor John Sterman)</span>
+                    </div>
+                    <ul class="list-disc pl-4 space-y-1 text-[11px] leading-relaxed text-slate-600">
+                        <li><strong>大宗商品價格戰陷阱：</strong> 鹽是標準化同質品，買家以最低標決標。但盲目降價只會引發同業跟進，陷入價格戰螺旋，破壞全行業利潤。</li>
+                        <li><strong>地理位置與水運護城河：</strong> 鹽價值低而重量大，運輸成本佔售價 40% 以上。Goderich 礦場直通五大湖水運網絡，是 Compass 最核心的成本防線。</li>
+                        <li><strong>淡水鹽鹼化環境風險 (Kaushal et al. 2005)：</strong> 大量使用道路融雪鹽已造成東北部溪流氯化物嚴重超標。若不投入綠色融雪劑或多角化鹽穴儲藏，法規管制將威脅長期生存。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Dashboard (4 張高對比圖表) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Chart 1: 企業估值競賽 (Enterprise Value) -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                        <i data-lucide="trending-up" class="w-4 h-4 text-blue-600"></i>
+                        四巨頭企業估值走勢競賽 (Enterprise Value, EV)
+                    </h3>
+                    <span class="text-[10px] text-slate-400 font-mono">百萬美元 ($M)</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="chartEV"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: 道路除冰鹽投標價格走勢 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                        <i data-lucide="dollar-sign" class="w-4 h-4 text-emerald-600"></i>
+                        道路除冰鹽投標報價對比 (Highway Salt Bidding Price)
+                    </h3>
+                    <span class="text-[10px] text-slate-400 font-mono">美元 / 公噸 ($/Ton)</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="chartPrice"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: 財務營收與淨利潤 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-600"></i>
+                        Compass 年度營業收入 vs 稅後淨利 (Revenue vs Net Income)
+                    </h3>
+                    <span class="text-[10px] text-slate-400 font-mono">百萬美元 ($M)</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="chartFinance"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: 生態淡水鹽化指數 (PNAS 研究) -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                        <i data-lucide="activity" class="w-4 h-4 text-cyan-600"></i>
+                        大西洋流域氯化物濃度與環保法規 (Freshwater Salinization)
+                    </h3>
+                    <span class="text-[10px] text-slate-400 font-mono">氯化物濃度 (mg/L)</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="chartEcology"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Performance Table: 年度生態與經濟營運紀錄表 -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                    <i data-lucide="history" class="w-4 h-4 text-blue-600"></i>
+                    年度生態與經濟營運紀錄表 (Historical Annual Log)
+                </h3>
+                <span class="text-xs text-slate-400 font-mono" id="tableRecordCount">共 0 筆營運紀錄</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                            <th class="p-2.5">年度</th>
+                            <th class="p-2.5">冬季氣候</th>
+                            <th class="p-2.5 text-right">道路鹽報價</th>
+                            <th class="p-2.5 text-right">商業鹽報價</th>
+                            <th class="p-2.5 text-right">道路鹽市佔</th>
+                            <th class="p-2.5 text-right">營業總收入</th>
+                            <th class="p-2.5 text-right">稅後淨利</th>
+                            <th class="p-2.5 text-right">期末現金</th>
+                            <th class="p-2.5 text-right">企業估值 (排名)</th>
+                            <th class="p-2.5 text-center">生態與法規</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-100 text-slate-700 font-mono">
+                        <tr>
+                            <td colspan="10" class="p-4 text-center text-slate-400 font-sans italic">尚無營運數據，請點擊「提交報價」開始第一年招標競賽</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Google 試算表成績回傳 Modal 彈跳視窗 -->
+    <div id="submitModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-in fade-in duration-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🎓</span>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">回傳 Ventures in Salt 經營決策成果</h3>
+                        <p class="text-xs text-slate-500">直連 Google 試算表（單一試算表・雙工作表架構）</p>
+                    </div>
+                </div>
+                <button onclick="closeSubmitModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+
+            <!-- 當前成績摘要預覽 -->
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5 font-mono">
+                <div class="flex justify-between text-slate-600"><span>當前模擬進度：</span><strong id="modalSummaryYear" class="text-blue-600">第 1 年</strong></div>
+                <div class="flex justify-between text-slate-600"><span>最終企業估值 (EV)：</span><strong id="modalSummaryEV" class="text-blue-700 font-bold">$580.0M (#1)</strong></div>
+                <div class="flex justify-between text-slate-600"><span>期末現金與負債：</span><strong id="modalSummaryCash" class="text-emerald-600 font-bold">$55.0M / $420.0M</strong></div>
+                <div class="flex justify-between text-slate-600"><span>淡水鹽化管制狀態：</span><strong id="modalSummaryRegulation" class="text-indigo-600">未實施管制</strong></div>
+            </div>
+
+            <!-- 雙工作表說明提示 -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-[11px] text-blue-900 space-y-1">
+                <div class="font-bold flex items-center gap-1.5 text-blue-800">
+                    <span>📋</span> 系統將自動登錄至老師試算表之雙工作表：
+                </div>
+                <div class="text-[10px] text-blue-700 leading-normal pl-4">
+                    1. <strong>「總成績與排行榜」</strong>：登記您的最終名次、企業估值、期末現金、累積營收與【模擬結束通知訊息】<br>
+                    2. <strong>「年度生態與經濟營運紀錄表」</strong>：完整記錄您 10 年之報價決策、氣候指數、道路鹽市佔、損益表明細與四巨頭估值走勢
+                </div>
+            </div>
+
+            <!-- 學生輸入表單 -->
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">班級代號 (Class)</label>
+                    <input type="text" id="inputClass" placeholder="例如：企管三甲、EMBA 策略管理" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">學號 (Student ID)</label>
+                        <input type="text" id="inputId" placeholder="例如：B110304001" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">姓名 (Student Name)</label>
+                        <input type="text" id="inputName" placeholder="例如：王小明" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Google Apps Script Webhook 網址設定 (可自由替換) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block font-semibold text-slate-700">Google Apps Script Web App URL (Webhook)</label>
+                        <button onclick="toggleWebhookConfig()" class="text-[10px] text-blue-600 hover:underline">展開/自訂網址</button>
+                    </div>
+                    <input type="text" id="inputWebhookUrl" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-[11px] font-mono text-slate-600 bg-slate-50 focus:bg-white focus:outline-none">
+                    <p class="text-[10px] text-slate-400 mt-0.5">預設已自動儲存於瀏覽器 LocalStorage，學生輸入一次後免再重複貼上。</p>
+                </div>
+            </div>
+
+            <!-- 操作與提示訊息 -->
+            <div class="pt-2 space-y-2">
+                <button id="btnSubmitScore" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition">
+                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                    確認回傳總成績與營運紀錄表至 Google 試算表
+                </button>
+                <div id="submitResultMsg" class="text-xs text-center font-medium min-h-[1.25rem]"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 bg-white py-4 px-4 sm:px-6 text-center text-xs text-slate-500">
+        <p>Ventures in Salt: Compass Minerals International・MIT Sloan 經典管理飛行模擬器・純前端 GitHub Pages + Google 雙工作表架構</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="engine.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
